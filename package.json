@@ -6,7 +6,7 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Gary McGhee",
-  "license": "ISC",
+  "license": "MIT",
   "description": "LWM2M server and client with water observation",
   "dependencies": {
     "coap": "^1.4.0",
