@@ -20,7 +20,6 @@ const config = {
 };
 
 let globalServerInfo;
-let registeredDevices = {};
 
 function handleResult(message) {
   return function(error) {
@@ -39,14 +38,14 @@ function setupObservation(endpoint) {
     '0',
     '1',
     function(value) {
-      console.log(`Received timestamp update from ${endpoint}: ${value} (${new Date(parseFloat(value) * 1000).toISOString()})`);
+    console.log(`Received timestamp update from ${endpoint}: ${value} (${new Date(parseFloat(value) * 1000).toISOString()})`);
     },
     function(error) {
-      if (error) {
-        console.error('Failed to set up observation:', error);
-      } else {
-        console.log('Observation set up for timestamp resource');
-      }
+    if (error) {
+      console.error('Failed to set up observation:', error);
+    } else {
+      console.log('Observation set up for timestamp resource');
+    }
     }
   );
 }
@@ -58,9 +57,6 @@ function registrationHandler(endpoint, lifetime, version, binding, payload, call
   console.log('Version:', version);
   console.log('Binding:', binding);
   console.log('Payload:', payload);
-
-  // Store the device information
-  registeredDevices[endpoint] = { endpoint, lifetime, version, binding };
 
   // Call the callback to complete the registration process
   callback(null);
@@ -74,13 +70,6 @@ function registrationHandler(endpoint, lifetime, version, binding, payload, call
 function unregistrationHandler(device, callback) {
   console.log('Device unregistration:');
   console.log('Device:', device);
-
-  // Remove the device from our storage
-  if (registeredDevices[device.name]) {
-    delete registeredDevices[device.name];
-    console.log(`Device ${device.name} unregistered and removed from storage`);
-  }
-
   callback();
 }
 
@@ -107,6 +96,20 @@ function stop() {
   } else {
     console.log('No server was listening');
   }
+}
+
+// Function to list all registered devices
+function listDevices() {
+  lwm2mServer.listDevices(function(error, deviceList) {
+    if (error) {
+      console.error('Error listing devices:', error);
+    } else {
+      console.log('Registered devices:');
+      deviceList.forEach(device => {
+        console.log(`- Endpoint: ${device.name}, Lifetime: ${device.lifetime}, Address: ${device.address}`);
+      });
+    }
+  });
 }
 
 // Start the server
