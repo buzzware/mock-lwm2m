@@ -25,17 +25,17 @@ function getCurrentTimestampValue() {
 // Create the object and set initial value
 lwm2mClient.registry.create('/3424/0', function(error) {
   if (error) {
-    console.error('Error creating Timestamp object:', error);
+    console.error('Error creating water object:', error);
     return;
   }
-  console.log('Timestamp object created');
+  console.log('cumulative water object created');
 
   lwm2mClient.registry.setResource('/3424/0', 1, getCurrentTimestampValue(), function(error) {
     if (error) {
-      console.error('Error setting initial timestamp:', error);
+      console.error('Error setting initial cumulative water value:', error);
       return;
     }
-    console.log('Initial timestamp set');
+    console.log('Initial cumulative water value set');
 
     // Register the client
     lwm2mClient.register(config.server.host, config.server.port, null, config.client.endpointName,
@@ -57,7 +57,7 @@ function updateValue() {
   const newValue = getCurrentTimestampValue();
   lwm2mClient.registry.setResource('/3424/0', 1, newValue, function(error) {
     if (error) {
-      console.error('Failed to update local timestamp:', error);
+      console.error('Failed to update local cumulative water:', error);
     } else {
       //console.log('Local timestamp updated to:', newValue);
       // Update the server

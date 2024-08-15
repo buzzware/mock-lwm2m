@@ -32,22 +32,24 @@ function handleResult(message) {
 }
 
 function setupObservation(endpoint) {
-  lwm2mServer.observe(
-    endpoint,
-    '3424',
-    '0',
-    '1',
-    function(value) {
-    console.log(`Received timestamp update from ${endpoint}: ${value} (${new Date(parseFloat(value) * 1000).toISOString()})`);
-    },
-    function(error) {
-    if (error) {
-      console.error('Failed to set up observation:', error);
-    } else {
-      console.log('Observation set up for timestamp resource');
-    }
-    }
-  );
+  let id2 = lwm2mServer.getDevice(endpoint,(e,device) => {
+    lwm2mServer.observe(
+      device.id,
+      '3424',
+      '0',
+      '1',
+      function (value) {
+        console.log(`Received cumulative water value from ${endpoint}: ${value}`);
+      },
+      function (error) {
+        if (error) {
+          console.error('Failed to set up observation:', error);
+        } else {
+          console.log('Observation set up for cumulative water resource');
+        }
+      }
+    );
+  });
 }
 
 function registrationHandler(endpoint, lifetime, version, binding, payload, callback) {
