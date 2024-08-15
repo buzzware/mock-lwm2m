@@ -11,7 +11,7 @@ const OBJECT_ID = 3424;
 const INSTANCE_ID = 0;
 const RESOURCE_ID = 1;
 
-let registrationLocation; // Store the registration location
+let registrationLocation;
 
 function registerDevice() {
   const req = coap.request({
@@ -25,13 +25,22 @@ function registerDevice() {
   });
 
   req.on('response', (res) => {
-    console.log('Registration response:', res.code);
+    console.log('Registration response code:', res.code);
+    console.log('Response headers:', res.headers);
+    console.log('Response options:', res.options);
+
     if (res.code === '2.01') {
       console.log('Device registered successfully');
-      registrationLocation = res.headers['Location']; // Store the registration location
-      console.log('Registration location:', registrationLocation);
-      // Start sending updates
-      setInterval(sendUpdate, LIFETIME * 1000 / 2);
+      // Look for Location-Path in options
+      const locationPath = res.options.find(option => option.name === 'Location-Path');
+      if (locationPath) {
+        registrationLocation = '/' + locationPath.value.join('/');
+        console.log('Registration location:', registrationLocation);
+        // Start sending updates
+        setInterval(sendUpdate, LIFETIME * 1000 / 2);
+      } else {
+        console.log('Error: Location-Path not found in response');
+      }
     } else {
       console.log('Registration failed');
     }
@@ -41,40 +50,7 @@ function registerDevice() {
   req.end(payload);
 }
 
-function sendUpdate() {
-  if (!registrationLocation) {
-    console.log('Registration location not available. Cannot send update.');
-    return;
-  }
-
-  const waterValue = generateWaterValue();
-  const req = coap.request({
-    host: SERVER_ADDRESS,
-    port: SERVER_PORT,
-    method: 'POST',
-    pathname: registrationLocation, // Use the stored registration location
-    options: {
-      'Content-Format': 'application/vnd.oma.lwm2m+tlv'
-    }
-  });
-
-  req.on('response', (res) => {
-    console.log('Update response:', res.code);
-  });
-
-  // Simple TLV encoding for a single resource
-  const valueBuffer = Buffer.alloc(4);
-  valueBuffer.writeFloatBE(waterValue);
-  const tlv = Buffer.concat([Buffer.from([0xC1, 0x01]), valueBuffer]);
-
-  req.end(tlv);
-}
-
-function generateWaterValue() {
-  // Generate water value based on seconds since 1970
-  const secondsSince1970 = Math.floor(Date.now() / 1000);
-  return (secondsSince1970 % 1000) / 10; // Value between 0 and 100
-}
+// ... rest of the client code ...
 
 // Start the client
 registerDevice();
