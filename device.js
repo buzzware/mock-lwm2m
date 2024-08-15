@@ -1,8 +1,4 @@
 const lwm2mClient = require('lwm2m-node-lib').client;
-const coap = require('coap');
-
-// Enable CoAP debugging
-coap.debug = true;
 
 const config = {
   server: {
@@ -11,74 +7,89 @@ const config = {
   },
   client: {
     lifetime: 60,
-    endpointName: 'WaterMeter123',
+    endpointName: 'WaterMeter1',
     version: '1.0'
   }
 };
 
+let deviceInfo;
+
 // Initialize the client
 lwm2mClient.init(config);
 
-console.log('Client initialized with config:', JSON.stringify(config, null, 2));
+// Function to get current timestamp divided by 1000.0
+function getCurrentTimestampValue() {
+  return (Date.now() / 1000.0).toFixed(3);
+}
 
-// Function to log the current state of the registry
-function logRegistryState() {
-  console.log('Current registry state:');
-  lwm2mClient.registry.list(function(error, objects) {
+// Create the object and set initial value
+lwm2mClient.registry.create('/3424/0', function(error) {
+  if (error) {
+    console.error('Error creating Timestamp object:', error);
+    return;
+  }
+  console.log('Timestamp object created');
+
+  lwm2mClient.registry.setResource('/3424/0', 1, getCurrentTimestampValue(), function(error) {
     if (error) {
-      console.error('Error listing registry:', error);
+      console.error('Error setting initial timestamp:', error);
+      return;
+    }
+    console.log('Initial timestamp set');
+
+    // Register the client
+    lwm2mClient.register(config.server.host, config.server.port, null, config.client.endpointName,
+      function (error, result) {
+        if (error) {
+          console.error('Registration failed:', error);
+          return;
+        }
+        console.log('Device registered:', result);
+        deviceInfo = result;
+
+        // Start periodic updates
+        setInterval(updateValue, 5000);
+      });
+  });
+});
+
+function updateValue() {
+  const newValue = getCurrentTimestampValue();
+  lwm2mClient.registry.setResource('/3424/0', 1, newValue, function(error) {
+    if (error) {
+      console.error('Failed to update local timestamp:', error);
     } else {
-      console.log(JSON.stringify(objects, null, 2));
+      //console.log('Local timestamp updated to:', newValue);
+      // Update the server
+      if (deviceInfo) {
+        lwm2mClient.update(deviceInfo, function(error) {
+          if (error) {
+            console.error('Failed to update server:', error);
+          } else {
+            console.log('Server updated with new value:', newValue);
+          }
+        });
+      } else {
+        console.error('Device info not available, cannot update server');
+      }
     }
   });
 }
 
-// Add standard LWM2M objects
-function addStandardObjects(callback) {
-  const standardObjects = [
-    { objectUri: '/0/0', objectName: 'LWM2M Security' },
-    { objectUri: '/1/0', objectName: 'LWM2M Server' },
-    { objectUri: '/3/0', objectName: 'Device' }
-  ];
-
-  function createNextObject(index) {
-    if (index >= standardObjects.length) {
-      callback();
-      return;
-    }
-
-    const obj = standardObjects[index];
-    lwm2mClient.registry.create(obj.objectUri, function(error) {
+// Handle graceful shutdown
+process.on('SIGINT', function() {
+  console.log('Unregistering client...');
+  if (deviceInfo) {
+    lwm2mClient.unregister(deviceInfo, function(error) {
       if (error) {
-        console.error(`Error creating ${obj.objectName} object:`, error);
+        console.error('Unregistration failed:', error);
       } else {
-        console.log(`${obj.objectName} object created`);
+        console.log('Client unregistered successfully');
       }
-      createNextObject(index + 1);
+      process.exit();
     });
+  } else {
+    console.log('Client was not registered, exiting...');
+    process.exit();
   }
-
-  createNextObject(0);
-}
-
-// Add standard objects and then register
-addStandardObjects(function() {
-  logRegistryState();
-
-  // Register the client
-  console.log('Attempting to register client...');
-  lwm2mClient.register(config.server.host, config.server.port, null, config.client.endpointName,
-    function (error, deviceInfo) {
-      if (error) {
-        console.error('Registration failed:', error);
-        console.error('Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
-        return;
-      }
-      console.log('Device registered successfully:', deviceInfo);
-
-      // Rest of the code remains the same...
-    }
-  );
 });
-
-// The rest of your code (updateWaterValue, generateWaterValue, etc.) remains the same...

@@ -6,13 +6,7 @@ const config = {
   lifetimeCheckInterval: 1000,
   udpWindow: 100,
   defaultType: 'Device',
-  types: [
-    {
-      name: 'OtherType',
-      url: '/OtherType'
-    }
-  ],
-  logLevel: 'FATAL',
+  logLevel: 'INFO',
   ipProtocol: 'udp4',
   serverProtocol: 'udp4',
   formats: [
@@ -56,6 +50,18 @@ function registrationHandler(endpoint, lifetime, version, binding, payload, call
   console.log('Version:', version);
   console.log('Binding:', binding);
   console.log('Payload:', payload);
+
+  // Set up observation for the timestamp resource
+  lwm2mServer.observe(endpoint, '3424', '0', '1', function(value) {
+    console.log(`Received cumulative water m3 from ${endpoint}: ${value}`);
+  }, function(error) {
+    if (error) {
+      console.error('Failed to set up observation:', error);
+    } else {
+      console.log('Observation set up for timestamp resource');
+    }
+  });
+
   callback();
 }
 
@@ -90,30 +96,8 @@ function stop() {
   }
 }
 
-// Basic read operation
-function read(deviceId, objectType, objectId, resourceId) {
-  lwm2mServer.read(deviceId, objectType, objectId, resourceId, function(error, result) {
-    if (error) {
-      console.error('Read error:', error);
-    } else {
-      console.log('Resource read:');
-      console.log('Id:', objectType + '/' + objectId + '/' + resourceId);
-      console.log('Value:', result);
-    }
-  });
-}
-
-// Basic write operation
-function write(deviceId, objectType, objectId, resourceId, value) {
-  lwm2mServer.write(deviceId, objectType, objectId, resourceId, value, handleResult('Value written successfully'));
-}
-
 // Start the server
 start();
-
-// Example usage (you would call these functions as needed)
-// read('device123', '3', '0', '0');
-// write('device123', '3', '0', '13', 'New Value');
 
 // Handle graceful shutdown
 process.on('SIGINT', function() {
