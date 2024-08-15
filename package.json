@@ -5,9 +5,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
+  "author": "Gary McGhee",
   "license": "ISC",
-  "description": "",
+  "description": "LWM2M server and client with water observation",
   "dependencies": {
     "coap": "^1.4.0",
     "lwm2m-node-lib": "^1.4.0"
