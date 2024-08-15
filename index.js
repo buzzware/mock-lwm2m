@@ -10,28 +10,17 @@ const config = {
   ipProtocol: 'udp4',
   serverProtocol: 'udp4',
   formats: [
-    {
-      name: 'application-vnd-oma-lwm2m/text',
-      value: 1541
-    },
-    {
-      name: 'application-vnd-oma-lwm2m/tlv',
-      value: 1542
-    },
-    {
-      name: 'application-vnd-oma-lwm2m/json',
-      value: 1543
-    },
-    {
-      name: 'application-vnd-oma-lwm2m/opaque',
-      value: 1544
-    }
+    { name: 'application-vnd-oma-lwm2m/text', value: 1541 },
+    { name: 'application-vnd-oma-lwm2m/tlv', value: 1542 },
+    { name: 'application-vnd-oma-lwm2m/json', value: 1543 },
+    { name: 'application-vnd-oma-lwm2m/opaque', value: 1544 }
   ],
   writeFormat: 'application-vnd-oma-lwm2m/text',
   defaultAcceptFormat: 'text/plain'
 };
 
 let globalServerInfo;
+let registeredDevices = {};
 
 function handleResult(message) {
   return function(error) {
@@ -43,6 +32,25 @@ function handleResult(message) {
   };
 }
 
+function setupObservation(endpoint) {
+  lwm2mServer.observe(
+    endpoint,
+    '3424',
+    '0',
+    '1',
+    function(value) {
+      console.log(`Received timestamp update from ${endpoint}: ${value} (${new Date(parseFloat(value) * 1000).toISOString()})`);
+    },
+    function(error) {
+      if (error) {
+        console.error('Failed to set up observation:', error);
+      } else {
+        console.log('Observation set up for timestamp resource');
+      }
+    }
+  );
+}
+
 function registrationHandler(endpoint, lifetime, version, binding, payload, callback) {
   console.log('Device registration:');
   console.log('Endpoint name:', endpoint);
@@ -51,23 +59,28 @@ function registrationHandler(endpoint, lifetime, version, binding, payload, call
   console.log('Binding:', binding);
   console.log('Payload:', payload);
 
-  // Set up observation for the timestamp resource
-  lwm2mServer.observe(endpoint, '3424', '0', '1', function(value) {
-    console.log(`Received cumulative water m3 from ${endpoint}: ${value}`);
-  }, function(error) {
-    if (error) {
-      console.error('Failed to set up observation:', error);
-    } else {
-      console.log('Observation set up for timestamp resource');
-    }
-  });
+  // Store the device information
+  registeredDevices[endpoint] = { endpoint, lifetime, version, binding };
 
-  callback();
+  // Call the callback to complete the registration process
+  callback(null);
+
+  // Set up observation after registration is complete
+  setTimeout(() => {
+    setupObservation(endpoint);
+  }, 1000); // Wait for 1 second to ensure registration is fully processed
 }
 
 function unregistrationHandler(device, callback) {
   console.log('Device unregistration:');
-  console.log('Device location:', device);
+  console.log('Device:', device);
+
+  // Remove the device from our storage
+  if (registeredDevices[device.name]) {
+    delete registeredDevices[device.name];
+    console.log(`Device ${device.name} unregistered and removed from storage`);
+  }
+
   callback();
 }
 
