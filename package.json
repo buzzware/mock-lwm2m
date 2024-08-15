@@ -9,6 +9,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "coap": "^1.4.0"
+    "coap": "^1.4.0",
+    "lwm2m-node-lib": "^1.4.0"
   }
 }
