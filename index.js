@@ -1,7 +1,9 @@
-const lwm2mServer = require('lwm2m-node-lib').server;
+const lwm2m = require('lwm2m-node-lib');
+const lwm2mServer = lwm2m.server;
 
 // Server Configuration
 const config = {
+  host: '0.0.0.0',  // Explicitly listen on all available network interfaces
   port: 5683,
   lifetimeCheckInterval: 1000,
   udpWindow: 100,
@@ -31,25 +33,75 @@ function handleResult(message) {
   };
 }
 
-function setupObservation(endpoint) {
-  let id2 = lwm2mServer.getDevice(endpoint,(e,device) => {
+function getDevice(endPoint) {
+  return new Promise((resolve, reject) => {
+    lwm2mServer.getDevice(endPoint,(e,device) => {
+      if (e)
+        reject(e);
+      else
+        resolve(device);
+    });
+  });
+}
+
+function observe(device,objectName,instanceId,resourceId,handler) {
+  return new Promise((resolve, reject) => {
+    let resolved = false;
     lwm2mServer.observe(
       device.id,
-      '3424',
-      '0',
-      '1',
-      function (value) {
-        console.log(`Received cumulative water value from ${endpoint}: ${value}`);
-      },
-      function (error) {
-        if (error) {
-          console.error('Failed to set up observation:', error);
-        } else {
-          console.log('Observation set up for cumulative water resource');
-        }
+      String(objectName),
+      String(instanceId),
+      String(resourceId),
+      (value) => handler(value,device),
+      (error,value) => {
+        if (error)
+          reject(error);
+        else
+          resolve(value);
       }
     );
   });
+}
+
+function read(device,objectName,instanceId=0,resourceId='') {
+  return new Promise((resolve, reject) => {
+    lwm2mServer.read(
+      device.id,
+      String(objectName),
+      String(instanceId),
+      String(resourceId),
+      (error,result) => {
+        if (error)
+          reject(error);
+        else
+          resolve(result);
+      }
+    );
+  });
+}
+
+function handleWater(value,device) {
+  console.log(`Received cumulative water value from ${device.name}: ${value}`);
+}
+
+async function afterRegistration(endpoint) {
+  let device = await getDevice(endpoint);
+  let result;
+
+  try {
+    await observe(device, 3424, 0, 1, handleWater);
+    console.log('Observation set up for cumulative water resource');
+  } catch (e) {
+    console.error('Failed to set up observation:', e);
+  }
+
+  result = await read(device,3,0,0);
+  console.log('=== Object 3');
+  console.log(JSON.stringify(result, null, 2));
+
+  // result = await read(device,15,0);
+  // console.log('=== Object 15');
+  // console.log(JSON.stringify(result, null, 2));
 }
 
 function registrationHandler(endpoint, lifetime, version, binding, payload, callback) {
@@ -65,7 +117,7 @@ function registrationHandler(endpoint, lifetime, version, binding, payload, call
 
   // Set up observation after registration is complete
   setTimeout(() => {
-    setupObservation(endpoint);
+    afterRegistration(endpoint);
   }, 1000); // Wait for 1 second to ensure registration is fully processed
 }
 
@@ -88,7 +140,7 @@ function start() {
       console.error('Failed to start LWM2M server:', error);
       return;
     }
-    setHandlers(serverInfo, handleResult('LWM2M Server started on port ' + config.port));
+    setHandlers(serverInfo, handleResult(`LWM2M Server started on port ${config.host}:${config.port}`));
   });
 }
 
